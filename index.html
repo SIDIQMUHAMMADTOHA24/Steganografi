@@ -24,8 +24,11 @@
         display: none;
       }
       canvas {
-        border: 1px solid #ccc;
-        margin-top: 10px;
+        max-height: 500px; /* Batasi tinggi maksimum */
+        width: auto; /* Pertahankan rasio aspek */
+        display: block;
+        margin: 0 auto; /* Tengah */
+        border: 1px solid #ccc; /* Opsional: Tambahkan border */
       }
       input,
       button {
@@ -116,15 +119,19 @@
           return;
         }
 
+        text += "\0"; // Tambahkan karakter null sebagai penanda akhir teks
         let binaryText = text
           .split("")
           .map((char) => char.charCodeAt(0).toString(2).padStart(8, "0"))
           .join("");
+
         let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         let data = imageData.data;
+
         for (let i = 0; i < binaryText.length; i++) {
           data[i * 4] = (data[i * 4] & ~1) | parseInt(binaryText[i], 2);
         }
+
         ctx.putImageData(imageData, 0, 0);
         alert("Teks berhasil disisipkan ke dalam gambar!");
       }
@@ -133,7 +140,6 @@
         imageUpload.value = "";
         textInput.value = "";
         ctx.clearRect(0, 0, canvas.width, canvas.height); // Hapus canvas
-        showHomePage(); // Kembali ke halaman utama
       }
 
       function downloadImage() {
@@ -172,16 +178,25 @@
         );
         let data = imageData.data;
         let binaryText = "";
-        for (let i = 0; i < 500; i++) {
-          binaryText += (data[i * 4] & 1).toString();
-        }
-        let extractedText = binaryText
-          .match(/.{1,8}/g)
-          .map((byte) => String.fromCharCode(parseInt(byte, 2)))
-          .join("")
-          .replace(/\0/g, "");
 
-        if (extractedText.trim() === "") {
+        for (let i = 0; i < data.length / 4; i++) {
+          binaryText += (data[i * 4] & 1).toString();
+
+          // Setiap 8 bit, periksa apakah itu karakter null ("\0")
+          if (binaryText.length % 8 === 0) {
+            let charCode = parseInt(binaryText.slice(-8), 2);
+            if (charCode === 0) break; // Berhenti membaca jika menemukan null character
+          }
+        }
+
+        // Konversi dari biner ke teks
+        let extractedText = binaryText
+          .match(/.{1,8}/g) // Pisahkan dalam kelompok 8 bit
+          ?.map((byte) => String.fromCharCode(parseInt(byte, 2))) // Konversi ke karakter
+          .join("")
+          .replace(/\0/g, ""); // Hapus null character
+
+        if (!extractedText.trim()) {
           alert("Tidak ada teks yang tersimpan dalam gambar.");
         } else {
           alert("Teks yang disisipkan: " + extractedText);
