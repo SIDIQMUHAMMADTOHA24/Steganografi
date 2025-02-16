@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Steganografi Teks dalam Gambar</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        background-color: #f4f4f4;
+      }
+      .container {
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+        text-align: center;
+      }
+      .hidden {
+        display: none;
+      }
+      canvas {
+        border: 1px solid #ccc;
+        margin-top: 10px;
+      }
+      input,
+      button {
+        margin-top: 10px;
+        padding: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="homePage" class="container">
+      <h2>Steganografi Gambar</h2>
+      <button onclick="showUploadPage()">Upload Gambar</button>
+      <button onclick="showExtractPage()">Ekstrak Gambar</button>
+    </div>
+
+    <div id="uploadPage" class="container hidden">
+      <h2>Upload dan Sisipkan Teks</h2>
+      <input type="file" id="imageUpload" accept="image/*" />
+      <br />
+      <canvas id="canvas"></canvas>
+      <br />
+      <input
+        type="text"
+        id="text"
+        placeholder="Masukkan teks untuk disisipkan"
+      />
+      <br />
+      <button onclick="hideText()">Sisipkan Teks</button>
+      <button onclick="downloadImage()">Download Gambar</button>
+      <button onclick="resetUpload()">Reset</button>
+      <button onclick="showHomePage()">Kembali</button>
+    </div>
+
+    <div id="extractPage" class="container hidden">
+      <h2>Ekstrak Teks dari Gambar</h2>
+      <input type="file" id="extractImageUpload" accept="image/*" />
+      <br />
+      <canvas id="extractCanvas"></canvas>
+      <br />
+      <button onclick="extractText()">Ekstrak Teks</button>
+      <button onclick="resetExtract()">Reset</button>
+      <button onclick="showHomePage()">Kembali</button>
+    </div>
+
+    <script>
+      function showUploadPage() {
+        document.getElementById("homePage").classList.add("hidden");
+        document.getElementById("uploadPage").classList.remove("hidden");
+      }
+
+      function showExtractPage() {
+        document.getElementById("homePage").classList.add("hidden");
+        document.getElementById("extractPage").classList.remove("hidden");
+      }
+
+      function showHomePage() {
+        document.getElementById("uploadPage").classList.add("hidden");
+        document.getElementById("extractPage").classList.add("hidden");
+        document.getElementById("homePage").classList.remove("hidden");
+      }
+
+      const canvas = document.getElementById("canvas");
+      const ctx = canvas.getContext("2d");
+      const imageUpload = document.getElementById("imageUpload");
+      const textInput = document.getElementById("text");
+      let img = new Image();
+
+      imageUpload.addEventListener("change", function (event) {
+        const file = event.target.files[0];
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          img.src = e.target.result;
+          textInput.value = ""; // Reset input teks saat gambar baru diunggah
+        };
+        reader.readAsDataURL(file);
+      });
+
+      img.onload = function () {
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0);
+      };
+
+      function hideText() {
+        let text = textInput.value;
+        if (!text) {
+          alert("Silakan masukkan teks sebelum menyisipkan.");
+          return;
+        }
+
+        let binaryText = text
+          .split("")
+          .map((char) => char.charCodeAt(0).toString(2).padStart(8, "0"))
+          .join("");
+        let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        let data = imageData.data;
+        for (let i = 0; i < binaryText.length; i++) {
+          data[i * 4] = (data[i * 4] & ~1) | parseInt(binaryText[i], 2);
+        }
+        ctx.putImageData(imageData, 0, 0);
+        alert("Teks berhasil disisipkan ke dalam gambar!");
+      }
+
+      function resetUpload() {
+        imageUpload.value = "";
+        textInput.value = "";
+        ctx.clearRect(0, 0, canvas.width, canvas.height); // Hapus canvas
+        showHomePage(); // Kembali ke halaman utama
+      }
+
+      function downloadImage() {
+        const link = document.createElement("a");
+        link.download = "image-steganografi.png";
+        link.href = canvas.toDataURL();
+        link.click();
+      }
+
+      const extractCanvas = document.getElementById("extractCanvas");
+      const extractCtx = extractCanvas.getContext("2d");
+      const extractImageUpload = document.getElementById("extractImageUpload");
+      let extractImg = new Image();
+
+      extractImageUpload.addEventListener("change", function (event) {
+        const file = event.target.files[0];
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          extractImg.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      });
+
+      extractImg.onload = function () {
+        extractCanvas.width = extractImg.width;
+        extractCanvas.height = extractImg.height;
+        extractCtx.drawImage(extractImg, 0, 0);
+      };
+
+      function extractText() {
+        let imageData = extractCtx.getImageData(
+          0,
+          0,
+          extractCanvas.width,
+          extractCanvas.height
+        );
+        let data = imageData.data;
+        let binaryText = "";
+        for (let i = 0; i < 500; i++) {
+          binaryText += (data[i * 4] & 1).toString();
+        }
+        let extractedText = binaryText
+          .match(/.{1,8}/g)
+          .map((byte) => String.fromCharCode(parseInt(byte, 2)))
+          .join("")
+          .replace(/\0/g, "");
+
+        if (extractedText.trim() === "") {
+          alert("Tidak ada teks yang tersimpan dalam gambar.");
+        } else {
+          alert("Teks yang disisipkan: " + extractedText);
+        }
+      }
+
+      function resetExtract() {
+        extractImageUpload.value = "";
+        extractCtx.clearRect(0, 0, extractCanvas.width, extractCanvas.height); // Hapus gambar di canvas
+      }
+    </script>
+  </body>
+</html>
